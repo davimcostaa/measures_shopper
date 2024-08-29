@@ -9,6 +9,13 @@ export const createMeasureValidator = vine.compile(
   })
 )
 
+export const patchMeasureValidator = vine.compile(
+  vine.object({
+    measure_uuid: vine.string().trim().uuid(),
+    confirmed_value: vine.number().withoutDecimals().positive()
+  })
+)
+
 
 
 vine.messagesProvider = new SimpleMessagesProvider({

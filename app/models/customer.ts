@@ -1,6 +1,5 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, hasMany } from '@adonisjs/lucid/orm'
-import * as crypto from 'crypto'
 import Measure from './measure.js'
 import type { HasMany } from '@adonisjs/lucid/types/relations'
 

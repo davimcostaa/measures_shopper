@@ -16,5 +16,6 @@ router.get('/', async () => {
   }
 })
 
-router.post('upload', [MeasuresController, 'store'])
+router.post('upload', [MeasuresController, 'store']);
+router.patch('confirm', [MeasuresController, 'update']);
 

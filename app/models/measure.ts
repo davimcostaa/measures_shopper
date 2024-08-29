@@ -15,7 +15,7 @@ export default class Measure extends BaseModel {
   declare measureType: string
 
   @column()
-  declare measureValue: string
+  declare measureValue: number
 
   @column()
   declare hasConfirmed: boolean

@@ -8,7 +8,7 @@ export default class extends BaseSchema {
       table.string('measure_uuid', 50).primary()
       table.dateTime('measure_datetime').notNullable()
       table.string('measure_type', 10).notNullable()
-      table.string('measure_value', 20).notNullable()
+      table.integer('measure_value', 20).notNullable()
       table.boolean('has_confirmed').nullable()
       table.string('image_url').notNullable()
       table.string('customer_code').unsigned().references('customer_code').inTable('customers')
