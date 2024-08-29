@@ -17,7 +17,6 @@ export default class Customer extends BaseModel {
   @column()
   declare customerCode: string
 
-
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

@@ -8,7 +8,7 @@ export default class MeasuresController {
   constructor(protected measure: MeasureService) {}
 
   async store({ request, response }: HttpContext) {
-    const result = await this.measure.handleMeasureCreation(request.only([
+    const result = await this.measure.createMeasure(request.only([
       'measure_datetime', 'measure_type', 'image', 'customer_code'
     ]));
 
@@ -17,6 +17,12 @@ export default class MeasuresController {
       return response.status(result.error_status).json({ error_code, error_description });
     }
 
-    return response.status(201).json(result);
+    const transformedResult = {
+      measure_uuid: result.measureUuid,
+      measure_value: result.measureValue,
+      image_url: result.imageUrl
+    };
+
+    return response.status(201).json(transformedResult);
   }
 }

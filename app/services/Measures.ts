@@ -1,13 +1,16 @@
-import { randomUUID } from "crypto"
-import Customer from "../models/customer.js"
-import Measure from "../models/measure.js"
-import { createMeasureValidator } from "../validators/measure.js"
+import { inject } from "@adonisjs/core";
+import { randomUUID } from "crypto";
+import Customer from "../models/customer.js";
+import Measure from "../models/measure.js";
+import { isBase64 } from "../validators/base64.js";
+import { createMeasureValidator } from "../validators/measure.js";
+import GeminiService from "./Gemini.js";
 
 interface CreateMeasureDTO {
-  measure_datetime: string
-  measure_type: string
-  image: string
-  customer_code: string
+  measure_datetime: string;
+  measure_type: string;
+  image: string;
+  customer_code: string;
 }
 
 interface ErrorResponse {
@@ -16,57 +19,76 @@ interface ErrorResponse {
   error_description: string;
 }
 
-
+@inject()
 export default class MeasureService {
+  constructor(private gemini: GeminiService) {}
 
-  public async handleMeasureCreation(data: CreateMeasureDTO): Promise<ErrorResponse | Measure> {
-    const { measure_datetime, measure_type, image, customer_code } = data
+  public async createMeasure(data: CreateMeasureDTO): Promise<Measure | ErrorResponse> {
+    // Validar os dados
+    const validationError = await this.validateMeasureData(data);
+    if (validationError) return validationError;
+
+    const customer = await this.findOrCreateCustomer(data.customer_code);
+
+    const duplicateError = await this.checkForDuplicateMeasure(data.measure_datetime, data.measure_type, data.customer_code);
+    if (duplicateError) return duplicateError;
 
     try {
-      await createMeasureValidator.validate(data);
+      const { result, imgUri } = await this.gemini.getGeminiValue(data.image);
+      const measureValue = result.trim().substring(0, 10);
+      const measureUuid = randomUUID();
 
-      const regex = /^data:image\/(png|jpeg|jpg|gif|bmp|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
-
-      if (!regex.test(data.image)) {
-        throw new Error('imagem fora do formato aceito. Inclua no início data:image/{formatoDaImagem};base64,');
-      }
-
+      return await Measure.create({
+        measureUuid,
+        measureDatetime: data.measure_datetime,
+        measureType: data.measure_type,
+        imageUrl: imgUri,
+        measureValue,
+        customerCode: data.customer_code,
+      });
     } catch (error) {
-      return {
-        error_status: 400,
-        error_code: 'INVALID_DATA',
-        error_description: error.messages || error.message || 'Dados inválidos'
-      };
+      return this.createErrorResponse(500, 'INTERNAL_ERROR', 'Erro ao criar a medida');
     }
+  }
 
-    let customer = await Customer.findBy('customer_code', customer_code)
+  private async validateMeasureData(data: CreateMeasureDTO): Promise<ErrorResponse | null> {
+    try {
+      await createMeasureValidator.validate(data);
+      if (!isBase64(data.image)) {
+        return this.createErrorResponse(400, 'INVALID_DATA', 'Formato de imagem inválido');
+      }
+      return null;
+    } catch (error) {
+      return this.createErrorResponse(400, 'INVALID_DATA', error.messages || 'Dados inválidos');
+    }
+  }
+
+  private async findOrCreateCustomer(customer_code: string): Promise<Customer> {
+    let customer = await Customer.findBy('customer_code', customer_code);
     if (!customer) {
-      customer = await Customer.create({ customerCode: customer_code })
+      customer = await Customer.create({ customerCode: customer_code });
     }
+    return customer;
+  }
 
-    const doubledMeasure = await Measure
-      .findManyBy({ customerCode: customer_code, measureType: measure_type })
+  private async checkForDuplicateMeasure(measure_datetime: string, measure_type: string, customer_code: string): Promise<ErrorResponse | null> {
+    const doubledMeasure = await Measure.findManyBy({ customerCode: customer_code, measureType: measure_type })
 
     const monthFromRequest = new Date(measure_datetime).getMonth()
+    const yearFromRequest = new Date(measure_datetime).getFullYear()
 
     for (const measure of doubledMeasure) {
-
       const monthSavedInDb = new Date(measure.measureDatetime).getMonth()
-      if (monthSavedInDb === monthFromRequest) {
+      const yearSavedInDb = new Date(measure.measureDatetime).getFullYear()
+
+      if (monthSavedInDb === monthFromRequest && yearFromRequest === yearSavedInDb) {
         return { error_status: 409, error_code: 'DUPLICATE_MEASURE', error_description: 'Leitura do mês já realizada' }
-      }
-    }
+      }}
 
+    return null
+  }
 
-
-    const measure = await Measure.create({
-      measureUuid: randomUUID(),
-      measureDatetime: measure_datetime,
-      measureType: measure_type,
-      imageUrl: image,
-      customerCode: customer_code,
-    })
-
-    return measure
+  private createErrorResponse(status: number, code: string, description: string): ErrorResponse {
+    return { error_status: status, error_code: code, error_description: description };
   }
 }
