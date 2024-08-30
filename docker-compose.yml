@@ -8,6 +8,8 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+      - LOG_LEVEL=info
+      - APP_KEY=HARYFsd2oPzRUP4xVV-rXGEgR-jaR2qZ
       - HOST=0.0.0.0
       - PORT=3333
       - DB_CONNECTION=pg

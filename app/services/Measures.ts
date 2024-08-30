@@ -115,11 +115,17 @@ export default class MeasureService {
       if (!isBase64(data.image)) {
         return this.createErrorResponse(400, 'INVALID_DATA', 'Formato de imagem inválido');
       }
+
+      const measureDateTime = new Date(data.measure_datetime);
+      if (isNaN(measureDateTime.getTime())) {
+        return this.createErrorResponse(400, 'INVALID_DATA', 'Data e hora inválidas');
+      }
       return null;
     } catch (error) {
       return this.createErrorResponse(400, 'INVALID_DATA', error.messages || 'Dados inválidos');
     }
   }
+
 
   private async validateMeasurePatchData(data: EditOrConfirmMeasureDTO): Promise<ErrorResponse | null> {
     try {
@@ -165,7 +171,7 @@ export default class MeasureService {
     ;
   }
 
-private async transformToCustomerMeasuresDTO(data: Measure[]):Promise<CustomerMeasuresDTO> {
+  private async transformToCustomerMeasuresDTO(data: Measure[]):Promise<CustomerMeasuresDTO> {
 
   const customer_code = data[0].customerCode;
 
@@ -180,7 +186,7 @@ private async transformToCustomerMeasuresDTO(data: Measure[]):Promise<CustomerMe
       image_url: item.imageUrl
     }))
   };
-}
+  }
 
   private async checkIfMeasureIsConfirmed(measure_uuid: string):Promise<ErrorResponse | null>  {
       const measure = await Measure.find(measure_uuid);
