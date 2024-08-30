@@ -26,6 +26,9 @@ export default class Measure extends BaseModel {
   @column()
   declare customerCode: string
 
+  @column()
+  declare customerId: string
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

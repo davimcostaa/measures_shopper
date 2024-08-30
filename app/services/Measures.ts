@@ -1,28 +1,11 @@
 import { inject } from "@adonisjs/core";
 import { randomUUID } from "crypto";
+import { CreatedMeasureDTO, CreateMeasureDTO, CustomerMeasuresDTO, EditOrConfirmMeasureDTO } from "../dtos/index.js";
 import Customer from "../models/customer.js";
 import Measure from "../models/measure.js";
 import { isBase64 } from "../validators/base64.js";
 import { createMeasureValidator, patchMeasureValidator } from "../validators/measure.js";
 import GeminiService from "./Gemini.js";
-
-interface CreateMeasureDTO {
-  measure_datetime: string;
-  measure_type: string;
-  image: string;
-  customer_code: string;
-}
-
-interface EditOrConfirmMeasureDTO {
-  measure_uuid: string;
-  confirmed_value: number;
-}
-
-interface CreatedMeasureDTO {
-  measure_uuid: string;
-  measure_value: number;
-  image_url: string;
-}
 
 interface ErrorResponse {
   error_status: number;
@@ -97,6 +80,34 @@ export default class MeasureService {
     }
   }
 
+  public async getCustomerMeasures(customerCode: string, measureType?: string) {
+    if (measureType) {
+      const measureTypeCase = measureType.toUpperCase();
+      const validTypes = ['WATER', 'GAS'];
+      if (!validTypes.includes(measureTypeCase)) {
+        return this.createErrorResponse(400, "INVALID_TYPE", "Tipo de medição não permitida");
+      }
+
+      const measures = await Measure.query()
+        .where('customer_code', customerCode)
+        .andWhere('measure_type', measureTypeCase);
+
+      if (measures.length === 0) {
+        return this.createErrorResponse(404, "MEASURES_NOT_FOUND", "Nenhuma leitura encontrada");
+      }
+
+      return this.transformToCustomerMeasuresDTO(measures);
+    } else {
+
+      const measures = await Measure.query().where('customer_code', customerCode);
+      if (measures.length === 0) {
+        return this.createErrorResponse(404, "MEASURES_NOT_FOUND", "Nenhuma leitura encontrada");
+      }
+
+      return this.transformToCustomerMeasuresDTO(measures);
+
+    }
+  }
 
   private async validateMeasureData(data: CreateMeasureDTO): Promise<ErrorResponse | null> {
     try {
@@ -154,6 +165,23 @@ export default class MeasureService {
     ;
   }
 
+private async transformToCustomerMeasuresDTO(data: Measure[]):Promise<CustomerMeasuresDTO> {
+
+  const customer_code = data[0].customerCode;
+
+  return {
+    customer_code,
+    measures: data.map(item => ({
+      measure_uuid: item.measureUuid,
+      measure_datetime: item.measureDatetime,
+      measure_type: item.measureType,
+      measure_value: item.measureValue,
+      has_confirmed: item.hasConfirmed,
+      image_url: item.imageUrl
+    }))
+  };
+}
+
   private async checkIfMeasureIsConfirmed(measure_uuid: string):Promise<ErrorResponse | null>  {
       const measure = await Measure.find(measure_uuid);
       if(measure?.hasConfirmed === true) {
@@ -161,7 +189,6 @@ export default class MeasureService {
       }
       return null
   }
-
 
   private createErrorResponse(status: number, code: string, description: string): ErrorResponse {
     return { error_status: status, error_code: code, error_description: description };

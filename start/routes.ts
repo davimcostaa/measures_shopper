@@ -18,4 +18,5 @@ router.get('/', async () => {
 
 router.post('upload', [MeasuresController, 'store']);
 router.patch('confirm', [MeasuresController, 'update']);
+router.get('/:customer_code/list', [MeasuresController, 'show']);
 
